@@ -1,1 +1,3 @@
-/local
+/dist
+/datadog-apm-dumper
+/cmd/datadog-apm-dumper/datadog-apm-dumper
