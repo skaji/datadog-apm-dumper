@@ -1,5 +1,9 @@
 # datadog apm dumper
 
+## Install
+
+Download appropriate binaries from https://github.com/skaji/datadog-apm-dumper/releases/latest.
+
 ## Usage
 
 ```
