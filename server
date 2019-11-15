@@ -8,7 +8,6 @@ use if "$FindBin::Bin/local/lib/perl5/$Config{version}", lib => "$FindBin::Bin/l
 
 use DDP;
 use Data::MessagePack ();
-use IO::Uncompress::Gunzip 'gunzip';
 use Plack::Request;
 use Plack::Runner;
 
