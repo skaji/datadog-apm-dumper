@@ -13,8 +13,11 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/mattn/go-colorable"
 	"github.com/vmihailenco/msgpack"
 )
+
+var stdout = colorable.NewColorableStdout()
 
 type Span struct {
 	// https://github.com/DataDog/dd-trace-go/blob/v1/ddtrace/tracer/span.go#L51
@@ -42,11 +45,11 @@ func apmServer(ctx context.Context, addr string) error {
 			w.WriteHeader(400)
 			return
 		}
-		fmt.Println("\033[1;31mapm\033[m | ---", r.RemoteAddr)
+		fmt.Fprintln(stdout, "\033[1;31mapm\033[m | ---", r.RemoteAddr)
 		b, _ := json.MarshalIndent(spans, "", "  ")
 		for _, line := range strings.Split(string(b), "\n") {
 			if len(line) > 0 {
-				fmt.Println("\033[1;31mapm\033[m |", line)
+				fmt.Fprintln(stdout, "\033[1;31mapm\033[m |", line)
 			}
 		}
 		w.WriteHeader(200)
@@ -88,10 +91,10 @@ func statsdServer(ctx context.Context, addr string) error {
 			}
 			return err
 		}
-		fmt.Println("\033[1;34mstat\033[m| ---", addr)
+		fmt.Fprintln(stdout, "\033[1;34mstat\033[m| ---", addr)
 		for _, line := range strings.Split(string(buf[:n]), "\n") {
 			if len(line) > 0 {
-				fmt.Println("\033[1;34mstat\033[m|", line)
+				fmt.Fprintln(stdout, "\033[1;34mstat\033[m|", line)
 			}
 		}
 	}
