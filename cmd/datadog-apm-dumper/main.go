@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/signal"
 	"strings"
@@ -14,40 +16,51 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var stdout = os.Stdout
 
 type Span struct {
 	// https://github.com/DataDog/dd-trace-go/blob/v1/ddtrace/tracer/span.go#L51
-	Name     string             `json:"name"`
-	Service  string             `json:"service"`
-	Resource string             `json:"resource"`
-	Type     string             `json:"type"`
-	Start    int64              `json:"start"`
-	Duration int64              `json:"duration"`
-	Meta     map[string]string  `json:"meta,omitempty"`
-	Metrics  map[string]float64 `json:"metrics,omitempty"`
-	SpanID   uint64             `json:"span_id"`
-	TraceID  uint64             `json:"trace_id"`
-	ParentID uint64             `json:"parent_id"`
-	Error    int32              `json:"error"`
+	Name     string             `msgpack:"name" json:"name"`
+	Service  string             `msgpack:"service" json:"service"`
+	Resource string             `msgpack:"resource" json:"resource"`
+	Type     string             `msgpack:"type" json:"type"`
+	Start    int64              `msgpack:"start" json:"start"`
+	Duration int64              `msgpack:"duration" json:"duration"`
+	Meta     map[string]string  `msgpack:"meta,omitempty" json:"meta,omitempty"`
+	Metrics  map[string]float64 `msgpack:"metrics,omitempty" json:"metrics,omitempty"`
+	SpanID   uint64             `msgpack:"span_id" json:"span_id"`
+	TraceID  uint64             `msgpack:"trace_id" json:"trace_id"`
+	ParentID uint64             `msgpack:"parent_id" json:"parent_id"`
+	Error    int32              `msgpack:"error" json:"error"`
 }
 
 func apmServer(ctx context.Context, addr string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		var spans [][]Span
-		if err := msgpack.NewDecoder(r.Body).UseJSONTag(true).Decode(&spans); err != nil {
+		if r.URL.Path == "/telemetry/proxy/api/v2/apmtelemetry" || r.URL.Path == "/info" {
+			w.WriteHeader(200)
+			return
+		}
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(400)
 			return
 		}
+		var spans [][]Span
+		if err := msgpack.Unmarshal(b, &spans); err != nil {
+			d, _ := httputil.DumpRequest(r, true)
+			fmt.Println("=== ERROR ===", string(d))
+			w.WriteHeader(400)
+			return
+		}
 		fmt.Fprintln(stdout, "---", time.Now().Format(time.RFC3339), r.RemoteAddr)
-		b, _ := json.MarshalIndent(spans, "", "  ")
-		for _, line := range strings.Split(string(b), "\n") {
+		out, _ := json.MarshalIndent(spans, "", "  ")
+		for _, line := range strings.Split(string(out), "\n") {
 			if len(line) > 0 {
 				fmt.Fprintln(stdout, line)
 			}
@@ -92,10 +105,10 @@ func statsdServer(ctx context.Context, addr string) error {
 			}
 			return err
 		}
-		//fmt.Fprintln(stdout, "\033[1;34mstat\033[m| ---", addr)
+		// fmt.Fprintln(stdout, "\033[1;34mstat\033[m| ---", addr)
 		for _, line := range strings.Split(string(buf[:n]), "\n") {
 			if len(line) > 0 {
-				//fmt.Fprintln(stdout, "\033[1;34mstat\033[m|", line)
+				// fmt.Fprintln(stdout, "\033[1;34mstat\033[m|", line)
 			}
 		}
 	}
