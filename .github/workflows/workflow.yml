@@ -14,9 +14,3 @@ jobs:
           go-version-file: go.mod
       - run: go mod download
       - run: go test ./...
-      - uses: goreleaser/goreleaser-action@v5
-        with:
-          version: latest
-          args: release --rm-dist
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
