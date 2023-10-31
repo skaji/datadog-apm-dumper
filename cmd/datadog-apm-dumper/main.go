@@ -19,7 +19,10 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var stdout = os.Stdout
+var (
+	stdout = os.Stdout
+	stderr = os.Stderr
+)
 
 type Span struct {
 	// https://github.com/DataDog/dd-trace-go/blob/v1/ddtrace/tracer/span.go#L51
@@ -37,28 +40,30 @@ type Span struct {
 	Error    int32              `msgpack:"error" json:"error"`
 }
 
+const apmPath = "/v0.4/traces"
+
 func apmServer(ctx context.Context, addr string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/telemetry/proxy/api/v2/apmtelemetry" || r.URL.Path == "/info" {
+		if r.URL.Path != apmPath {
 			w.WriteHeader(200)
 			return
 		}
 		b, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(stderr, err)
 			w.WriteHeader(400)
 			return
 		}
 		var spans [][]Span
 		if err := msgpack.Unmarshal(b, &spans); err != nil {
 			d, _ := httputil.DumpRequest(r, true)
-			fmt.Println("=== ERROR ===", string(d))
+			fmt.Fprintln(stderr, "=== ERROR ===", string(d))
 			w.WriteHeader(400)
 			return
 		}
-		fmt.Fprintln(stdout, "---", time.Now().Format(time.RFC3339), r.RemoteAddr)
+		fmt.Fprintln(stderr, "---", time.Now().Format(time.RFC3339), r.RemoteAddr)
 		out, _ := json.MarshalIndent(spans, "", "  ")
 		for _, line := range strings.Split(string(out), "\n") {
 			if len(line) > 0 {
